@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ระบบส่งข้อมูลและไฟล์งาน</title>
+    <!-- Tailwind CSS via CDN for simplicity in this setup -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+      body {
+        font-family: 'Sarabun', sans-serif;
+        background-color: #fce7f3; /* Pink-100 */
+      }
+      /* Custom scrollbar for the cute look */
+      ::-webkit-scrollbar {
+        width: 8px;
+      }
+      ::-webkit-scrollbar-track {
+        background: #fff0f5; 
+      }
+      ::-webkit-scrollbar-thumb {
+        background: #ec4899; 
+        border-radius: 4px;
+      }
+      .neo-brutalism {
+        border: 2px solid black;
+        box-shadow: 4px 4px 0px 0px rgba(0,0,0,1);
+      }
+      .neo-brutalism-sm {
+        border: 2px solid black;
+        box-shadow: 2px 2px 0px 0px rgba(0,0,0,1);
+      }
+      .neo-brutalism:active {
+        box-shadow: 0px 0px 0px 0px rgba(0,0,0,1);
+        transform: translate(4px, 4px);
+      }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.2.4",
+    "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
+    "react/": "https://esm.sh/react@^19.2.4/",
+    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
+    "@vitejs/plugin-react": "https://esm.sh/@vitejs/plugin-react@^5.1.2",
+    "vite": "https://esm.sh/vite@^7.3.1"
+  }
+}
+</script>
+<link rel="stylesheet" href="/index.css">
+</head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/index.tsx"></script>
+  </body>
+</html>
