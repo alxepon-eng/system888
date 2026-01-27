@@ -1,152 +1,140 @@
-// ฟังก์ชัน doGet เดิม (ใช้สำหรับ fetch หรือ submit ข้อมูลที่ไม่มีไฟล์)
-// ฟังก์ชันนี้จะยังคงอยู่ แต่การ submit ที่มีไฟล์จะใช้ doPost แทน
-function doGet(e) {
-  const action = e.parameter.action;
-  const callback = e.parameter.callback;
+// --- ตั้งค่า ID ---
+var SHEET_ID = '1WhgMytmfWT5osX06fBCd9pSqVpHCOQ-bm84lH6M9KGc';
+var FOLDER_ID = '1GduzdhB0Ec_NfZDnLMUBTGGnWIKfRdyn';
 
-  let result = {};
-
-  if (action === 'fetch') {
-    try {
-      const data = getAllSubmissions();
-      result = { result: 'success', data: data };
-    } catch (error) {
-      result = { result: 'error', message: error.toString() };
-    }
-  } else {
-    // กรณีที่ action ไม่ใช่ 'fetch' หรือ 'submit' แบบเดิม (ถ้ายังใช้ submit แบบเดิมอยู่ ให้ระวังว่าไม่ได้ส่งไฟล์)
-    result = { result: 'error', message: 'Invalid action or method for direct file upload.' };
-  }
-
-  // สำหรับ doGet เรายังคงใช้ JSONP callback
-  return ContentService.createTextOutput(callback + '(' + JSON.stringify(result) + ')')
-    .setMimeType(ContentService.MimeType.JAVASCRIPT);
-}
-
-// --- ฟังก์ชันใหม่: doPost สำหรับการรับไฟล์และข้อมูลฟอร์ม ---
-// นี่คือส่วนสำคัญที่จะจัดการการอัปโหลดไฟล์ไปยัง Google Drive
 function doPost(e) {
-  // *** สำคัญ: เปลี่ยน YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE เป็น ID โฟลเดอร์ Google Drive ของคุณ ***
-  // ตัวอย่าง: '1UNq6gt1LfMvLODYuwmVw-NW7bkpp7kPO'
-  const FOLDER_ID = '1uH-ImHslwgFyvOitHxdxv4G0BA1zIKlD'; 
-  let result = {};
-
+  var lock = LockService.getScriptLock();
+  lock.tryLock(10000);
+  
   try {
-    // ตรวจสอบว่ามีข้อมูลไฟล์ถูกส่งมาหรือไม่
-    // e.parameters.file จะเป็น array หากมีการอัปโหลดไฟล์ และมีข้อมูล file[0]
-    const uploadedFileArray = e.parameters.file; 
+    var data = JSON.parse(e.postData.contents);
+    var action = data.action || 'SUBMIT'; // ตรวจสอบ action
     
-    // ดึงข้อมูลฟอร์มอื่นๆ ที่แปลงเป็น JSON string มาจาก Frontend
-    const formData = JSON.parse(e.parameters.data); 
-
-    let fileName = formData.fileName || "N/A"; // ชื่อไฟล์ที่ได้จากฟอร์ม หรือค่าเริ่มต้น
-    let fileUrl = ""; // จะเก็บ URL ของไฟล์ที่อัปโหลดไป Google Drive
-
-    if (uploadedFileArray && uploadedFileArray.length > 0) {
-      const fileData = uploadedFileArray[0]; // ดึงข้อมูลไฟล์แรก
-      const blob = Utilities.newBlob(fileData.bytes, fileData.mimeType, fileData.name);
-      
-      const folder = DriveApp.getFolderById(FOLDER_ID);
-      const uploadedFile = folder.createFile(blob);
-
-      // ตั้งค่าการอนุญาตให้ไฟล์สามารถดูได้ (ถ้าต้องการให้ลิงก์เปิดได้โดยตรง)
-      // uploadedFile.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW); 
-
-      fileUrl = uploadedFile.getUrl(); // ได้ลิงก์ของไฟล์ที่อัปโหลดแล้ว
-      fileName = uploadedFile.getName(); // ได้ชื่อไฟล์จริงที่อัปโหลด (อาจแตกต่างจาก formData.fileName)
-
-      result = { result: 'success', message: 'File uploaded and data saved.', fileUrl: fileUrl, fileName: fileName };
-
-    } else {
-      result = { result: 'success', message: 'No file uploaded, but data saved.' };
+    // 1. กรณีดึงข้อมูล (Get Submissions)
+    if (action === 'GET_SUBMISSIONS') {
+      var submissions = getSubmissions();
+      return createJsonResponse({ status: 'success', data: submissions });
     }
 
-    // บันทึกข้อมูลทั้งหมดลงใน Google Sheet
-    saveSubmission({
-      number: formData.number,
-      name: formData.name,
-      title: formData.title,
-      description: formData.description,
-      link: formData.link, // ลิงก์งานทั่วไปที่ผู้ใช้อาจกรอกมา
-      fileName: fileName, // ชื่อไฟล์ที่ได้จาก Google Drive
-      fileData: fileUrl,  // <--- เก็บ URL ของไฟล์ใน Google Drive
-      note: formData.note,
-      date: formData.date,
-      status: formData.status
-    });
-
-  } catch (error) {
-    result = { result: 'error', message: error.toString() };
+    // 2. กรณีอัปเดตคะแนน (Update Grade)
+    if (action === 'UPDATE_GRADE') {
+      var result = updateGrade(data.rowId, data.score, data.feedback);
+      return createJsonResponse(result);
+    }
+    
+    // 3. กรณีส่งงาน (Submit - นักเรียน) หรือ มอบหมายงาน (Teacher)
+    // (ใช้โค้ดเดิมแต่ปรับให้รองรับ action)
+    var ss = SpreadsheetApp.openById(SHEET_ID);
+    var sheetName = data.role === 'TEACHER' ? 'Assignments' : 'Submissions';
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = ss.insertSheet(sheetName);
+      if (data.role === 'TEACHER') {
+         sheet.appendRow(['Timestamp', 'TargetGroup', 'Subject', 'Topic', 'DueDate', 'FileUrl']);
+      } else {
+         sheet.appendRow(['Timestamp', 'Group', 'Subject', 'AssignmentTitle', 'Members', 'Link', 'FileUrl', 'Score', 'Feedback']);
+      }
+    }
+    
+    var fileUrl = '';
+    if (data.fileData) {
+      var folder = DriveApp.getFolderById(FOLDER_ID);
+      var contentType = data.fileData.base64.substring(5, data.fileData.base64.indexOf(';'));
+      var bytes = Utilities.base64Decode(data.fileData.base64);
+      var blob = Utilities.newBlob(bytes, data.fileData.type, data.fileData.name);
+      var file = folder.createFile(blob);
+      fileUrl = file.getUrl();
+      file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+    }
+    
+    if (data.role === 'TEACHER') {
+      sheet.appendRow([
+        data.timestamp,
+        data.targetGroup,
+        data.subject,
+        data.topic,
+        data.dueDate,
+        fileUrl
+      ]);
+      // TODO: เพิ่มโค้ดส่ง Email/Line Notify แจ้งเตือนนักเรียนที่นี่
+    } else {
+      // Student Submission
+      var membersStr = JSON.stringify(data.members);
+      sheet.appendRow([
+        data.timestamp,
+        data.group,
+        data.subject,
+        data.assignmentTitle,
+        membersStr,
+        data.link,
+        fileUrl,
+        '', // Score (Empty initially)
+        ''  // Feedback (Empty initially)
+      ]);
+      // TODO: เพิ่มโค้ดส่ง Email แจ้งเตือนครูที่นี่
+    }
+    
+    return createJsonResponse({ status: 'success', message: 'บันทึกข้อมูลสำเร็จ', fileUrl: fileUrl });
+    
+  } catch (e) {
+    return createJsonResponse({ status: 'error', message: e.toString() });
+  } finally {
+    lock.releaseLock();
   }
-
-  // สำหรับ doPost เราจะส่งผลลัพธ์เป็น JSON ปกติ (ไม่ใช้ JSONP callback)
-  return ContentService.createTextOutput(JSON.stringify(result))
-    .setMimeType(ContentService.MimeType.JSON);
 }
 
-// ฟังก์ชัน saveSubmission (มีการปรับเปลี่ยน Header สำหรับคอลัมน์ลิงก์ไฟล์)
-function saveSubmission(data) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Submissions') || 
-                SpreadsheetApp.getActiveSpreadsheet().insertSheet('Submissions');
-  
-  // ตรวจสอบว่ามี Header หรือไม่ หากไม่มี ให้เพิ่ม Header
-  if (sheet.getLastRow() === 0) {
-    sheet.appendRow([
-      'ลำดับ/เลขที่', 
-      'ชื่อและนามสกุล', 
-      'ชื่อหัวข้องาน', 
-      'รายละเอียด', 
-      'ลิงก์งาน', 
-      'ชื่อไฟล์ที่อัปโหลด', // <--- เปลี่ยน Header ให้ชัดเจนขึ้น
-      'ลิงก์ไฟล์ Google Drive', // <--- เปลี่ยน Header ให้ชัดเจนขึ้น
-      'หมายเหตุ', 
-      'วันที่ส่ง', 
-      'สถานะ'
-    ]);
-  }
-  
-  // เพิ่มข้อมูลที่ได้รับลงในแถวใหม่
-  sheet.appendRow([
-    data.number,
-    data.name,
-    data.title,
-    data.description,
-    data.link,
-    data.fileName,    // ชื่อไฟล์ที่อัปโหลด
-    data.fileData,    // ลิงก์ไฟล์จาก Google Drive
-    data.note,
-    data.date,
-    data.status
-  ]);
-}
-
-// ฟังก์ชัน getAllSubmissions (เดิม ไม่ต้องแก้ไข)
-function getAllSubmissions() {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName('Submissions');
+function getSubmissions() {
+  var ss = SpreadsheetApp.openById(SHEET_ID);
+  var sheet = ss.getSheetByName('Submissions');
   if (!sheet) return [];
   
-  const data = sheet.getDataRange().getValues();
-  if (data.length <= 1) return []; // มีแค่ Header หรือว่างเปล่า
-
-  const headers = data[0];
-  const submissions = [];
+  var data = sheet.getDataRange().getValues();
+  var headers = data[0];
+  var results = [];
   
-  for (let i = 1; i < data.length; i++) {
-    const row = data[i];
-    const submission = {
-      number: row[0],
-      name: row[1],
-      title: row[2],
-      description: row[3],
-      link: row[4],
-      fileName: row[5],
-      fileData: row[6], // ตอนนี้คือ URL ของไฟล์ใน Google Drive
-      note: row[7],
-      date: row[8],
-      status: row[9]
-    };
-    submissions.push(submission);
+  // เริ่มแถวที่ 2 (index 1)
+  for (var i = 1; i < data.length; i++) {
+    var row = data[i];
+    // Mapping ตามลำดับคอลัมน์: Timestamp, Group, Subject, Title, Members, Link, FileUrl, Score, Feedback
+    // เพิ่ม rowId (คือเลขแถว i+1) เพื่อใช้อ้างอิงตอนให้คะแนน
+    try {
+       results.push({
+          rowId: i + 1, 
+          timestamp: row[0],
+          group: row[1],
+          subject: row[2],
+          assignmentTitle: row[3],
+          members: JSON.parse(row[4] || '[]'),
+          link: row[5],
+          fileUrl: row[6],
+          score: row[7],
+          feedback: row[8]
+       });
+    } catch(e) {
+       // Skip errors
+    }
   }
-  
-  return submissions;
+  // เรียงลำดับจากใหม่ไปเก่า
+  return results.reverse();
+}
+
+function updateGrade(rowId, score, feedback) {
+   var ss = SpreadsheetApp.openById(SHEET_ID);
+   var sheet = ss.getSheetByName('Submissions');
+   
+   // เช็คว่า rowId อยู่ในขอบเขตหรือไม่
+   if (rowId > sheet.getLastRow() || rowId < 2) {
+      return { status: 'error', message: 'ไม่พบข้อมูลแถวที่ระบุ' };
+   }
+   
+   // คอลัมน์ Score คือ 8, Feedback คือ 9 (index เริ่ม 1)
+   sheet.getRange(rowId, 8).setValue(score);
+   sheet.getRange(rowId, 9).setValue(feedback);
+   
+   return { status: 'success', message: 'อัปเดตคะแนนแล้ว' };
+}
+
+function createJsonResponse(data) {
+  return ContentService.createTextOutput(JSON.stringify(data))
+    .setMimeType(ContentService.MimeType.JSON);
 }
