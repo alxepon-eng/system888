@@ -1,0 +1,982 @@
+<!doctype html>
+<html lang="th" class="h-full">
+ <head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ระบบส่งข้อมูลและไฟล์งาน</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="/_sdk/element_sdk.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Kanit:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet">
+  <style>
+    body {
+      box-sizing: border-box;
+      font-family: 'Kanit', sans-serif;
+    }
+    
+    .cute-border {
+      border: 3px solid #1a1a1a;
+      border-radius: 20px;
+    }
+    
+    .cute-shadow {
+      box-shadow: 6px 6px 0px #1a1a1a;
+    }
+    
+    .cute-btn {
+      border: 3px solid #1a1a1a;
+      border-radius: 12px;
+      box-shadow: 4px 4px 0px #1a1a1a;
+      transition: all 0.2s ease;
+    }
+    
+    .cute-btn:hover {
+      transform: translate(2px, 2px);
+      box-shadow: 2px 2px 0px #1a1a1a;
+    }
+    
+    .cute-btn:active {
+      transform: translate(4px, 4px);
+      box-shadow: 0px 0px 0px #1a1a1a;
+    }
+    
+    .cute-input {
+      border: 2px solid #1a1a1a;
+      border-radius: 10px;
+      transition: all 0.2s ease;
+    }
+    
+    .cute-input:focus {
+      outline: none;
+      box-shadow: 3px 3px 0px #ff69b4;
+    }
+    
+    .progress-bar {
+      background: linear-gradient(90deg, #ff69b4, #ffb6c1, #ff69b4);
+      background-size: 200% 100%;
+      animation: shimmer 1.5s ease-in-out infinite;
+    }
+    
+    @keyframes shimmer {
+      0% { background-position: -200% 0; }
+      100% { background-position: 200% 0; }
+    }
+    
+    @keyframes bounce-in {
+      0% { transform: scale(0.8); opacity: 0; }
+      50% { transform: scale(1.05); }
+      100% { transform: scale(1); opacity: 1; }
+    }
+    
+    @keyframes float {
+      0%, 100% { transform: translateY(0); }
+      50% { transform: translateY(-10px); }
+    }
+    
+    .animate-bounce-in {
+      animation: bounce-in 0.5s ease-out;
+    }
+    
+    .animate-float {
+      animation: float 3s ease-in-out infinite;
+    }
+    
+    .file-drop-zone {
+      border: 3px dashed #ff69b4;
+      border-radius: 15px;
+      transition: all 0.3s ease;
+    }
+    
+    .file-drop-zone:hover, .file-drop-zone.drag-over {
+      background: #fff0f5;
+      border-color: #ff1493;
+    }
+    
+    .member-card {
+      border: 2px solid #1a1a1a;
+      border-radius: 12px;
+      background: linear-gradient(135deg, #fff 0%, #fff0f5 100%);
+    }
+    
+    .tab-btn {
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .tab-btn::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      width: 0;
+      height: 3px;
+      background: #ff69b4;
+      transition: all 0.3s ease;
+      transform: translateX(-50%);
+    }
+    
+    .tab-btn.active::after {
+      width: 80%;
+    }
+  </style>
+  <style>@view-transition { navigation: auto; }</style>
+  <script src="/_sdk/data_sdk.js" type="text/javascript"></script>
+ </head>
+ <body class="h-full bg-gradient-to-br from-pink-50 via-white to-pink-100 overflow-auto">
+  <div id="app" class="min-h-full w-full"><!-- Loading Overlay -->
+   <div id="loadingOverlay" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+    <div class="bg-white cute-border cute-shadow p-8 text-center max-w-sm mx-4 animate-bounce-in">
+     <div class="text-6xl mb-4 animate-float">
+      📤
+     </div>
+     <h3 class="text-xl font-bold text-gray-800 mb-4">กำลังอัปโหลด...</h3>
+     <div class="w-full bg-gray-200 rounded-full h-4 cute-border overflow-hidden mb-2">
+      <div id="progressBar" class="progress-bar h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+     </div>
+     <p id="progressText" class="text-pink-600 font-medium">0%</p>
+    </div>
+   </div><!-- Success Modal -->
+   <div id="successModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+    <div class="bg-white cute-border cute-shadow p-8 text-center max-w-sm mx-4 animate-bounce-in">
+     <div class="text-6xl mb-4">
+      🎉
+     </div>
+     <h3 class="text-xl font-bold text-green-600 mb-2">ส่งข้อมูลสำเร็จ!</h3>
+     <p class="text-gray-600 mb-4">ข้อมูลของคุณถูกบันทึกเรียบร้อยแล้ว</p><button onclick="closeModal('successModal')" class="cute-btn bg-pink-500 text-white px-6 py-2 font-medium"> ตกลง ✨ </button>
+    </div>
+   </div><!-- Error Modal -->
+   <div id="errorModal" class="fixed inset-0 bg-black/50 z-50 hidden items-center justify-center">
+    <div class="bg-white cute-border cute-shadow p-8 text-center max-w-sm mx-4 animate-bounce-in">
+     <div class="text-6xl mb-4">
+      😢
+     </div>
+     <h3 class="text-xl font-bold text-red-600 mb-2">เกิดข้อผิดพลาด</h3>
+     <p id="errorMessage" class="text-gray-600 mb-4">กรุณาลองใหม่อีกครั้ง</p><button onclick="closeModal('errorModal')" class="cute-btn bg-pink-500 text-white px-6 py-2 font-medium"> ลองใหม่ 🔄 </button>
+    </div>
+   </div><!-- Login Page -->
+   <div id="loginPage" class="min-h-full flex items-center justify-center p-4">
+    <div class="w-full max-w-md">
+     <div class="text-center mb-8">
+      <div class="text-6xl mb-4 animate-float">
+       📚
+      </div>
+      <h1 id="systemTitle" class="text-2xl md:text-3xl font-bold text-gray-800 mb-2">ระบบส่งข้อมูล และไฟล์งาน</h1>
+      <p class="text-pink-600">ส่งงานได้ง่ายๆ ในคลิกเดียว 🚀</p>
+     </div>
+     <div class="bg-white cute-border cute-shadow p-6 md:p-8">
+      <div class="flex mb-6 border-b-2 border-gray-200"><button onclick="switchLoginTab('student')" id="studentTab" class="tab-btn flex-1 py-3 text-center font-medium text-pink-600 active"> 👨‍🎓 นักศึกษา </button> <button onclick="switchLoginTab('teacher')" id="teacherTab" class="tab-btn flex-1 py-3 text-center font-medium text-gray-500"> 👩‍🏫 อาจารย์ </button>
+      </div><!-- Student Login -->
+      <div id="studentLoginForm"><button onclick="studentLogin()" class="cute-btn bg-pink-500 text-white w-full py-3 text-lg font-medium"> 👨‍🎓 นักศึกษา - ส่งงาน 📝 </button>
+      </div><!-- Teacher Login -->
+      <div id="teacherLoginForm" class="hidden">
+       <div class="mb-4"><label class="block text-gray-700 font-medium mb-2">🔐 รหัสผ่าน</label> <input type="password" id="teacherPassword" placeholder="กรอกรหัสผ่าน" class="cute-input w-full px-4 py-3 text-lg">
+       </div><button onclick="teacherLogin()" class="cute-btn bg-purple-500 text-white w-full py-3 text-lg font-medium"> เข้าสู่ระบบ 🚀 </button>
+      </div>
+     </div>
+    </div>
+   </div><!-- Student Submit Page -->
+   <div id="studentPage" class="min-h-full hidden">
+    <header class="bg-gradient-to-r from-pink-500 to-pink-400 text-white p-4 cute-border border-t-0 border-x-0 shadow-lg">
+     <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3"><span class="text-3xl">📝</span>
+       <div>
+        <h1 class="text-xl font-bold">ส่งงาน</h1>
+        <p id="studentWelcome" class="text-pink-100 text-sm">ยินดีต้อนรับ</p>
+       </div>
+      </div><button onclick="logout()" class="cute-btn bg-white text-pink-600 px-4 py-2 text-sm font-medium"> ออกจากระบบ 👋 </button>
+     </div>
+    </header>
+    <main class="max-w-4xl mx-auto p-4 md:p-6">
+     <form id="submitForm" class="space-y-6"><!-- Group Members -->
+      <div class="bg-white cute-border cute-shadow p-6">
+       <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">👥 สมาชิกในกลุ่ม</h2><span id="memberCount" class="bg-pink-100 text-pink-600 px-3 py-1 rounded-full text-sm font-medium"> 0 / 5 คน </span>
+       </div>
+       <div id="membersList" class="space-y-3"><!-- Members will be added here -->
+       </div><button type="button" onclick="addMember()" id="addMemberBtn" class="cute-btn bg-pink-100 text-pink-600 w-full py-3 mt-4 font-medium"> ➕ เพิ่มสมาชิก </button>
+      </div><!-- Course Info -->
+      <div class="bg-white cute-border cute-shadow p-6">
+       <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">📖 ข้อมูลรายวิชา</h2>
+       <div><label class="block text-gray-700 font-medium mb-2">📚 รายวิชา <span class="text-red-500">*</span></label> <select id="subject" class="cute-input w-full px-4 py-3" required> <option value="">-- เลือกรายวิชา --</option> <option value="คอมพิวเตอร์เบื้องต้น">คอมพิวเตอร์เบื้องต้น</option> <option value="การเขียนโปรแกรม">การเขียนโปรแกรม</option> <option value="ระบบเครือข่าย">ระบบเครือข่าย</option> <option value="ฐานข้อมูล">ฐานข้อมูล</option> <option value="Cloud Computing">Cloud Computing</option> </select>
+       </div>
+      </div><!-- Assignment Details -->
+      <div class="bg-white cute-border cute-shadow p-6">
+       <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">📋 รายละเอียดงาน</h2>
+       <div class="space-y-4">
+        <div><label class="block text-gray-700 font-medium mb-2">📌 หัวข้องาน <span class="text-red-500">*</span></label> <input type="text" id="assignmentTitle" placeholder="เช่น Lab 1: Cloud Introduction" class="cute-input w-full px-4 py-3" required>
+        </div>
+        <div><label class="block text-gray-700 font-medium mb-2">🔗 ลิงก์งาน (ถ้ามี)</label> <input type="url" id="workLink" placeholder="https://" class="cute-input w-full px-4 py-3">
+        </div>
+</div>
+      </div><!-- File Upload -->
+      <div class="bg-white cute-border cute-shadow p-6">
+       <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">📎 อัพโหลดไฟล์ <span class="text-gray-400 text-sm font-normal">(ไม่เกิน 10 MB)</span></h2>
+       <div id="fileDropZone" class="file-drop-zone p-8 text-center cursor-pointer" onclick="document.getElementById('fileInput').click()">
+        <div class="text-5xl mb-4">
+         📁
+        </div>
+        <p class="text-gray-600 mb-2">คลิกเพื่อเลือกไฟล์ หรือลากไฟล์มาวางที่นี่</p>
+        <p class="text-sm text-gray-400">รองรับ: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX</p><input type="file" id="fileInput" class="hidden" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx" onchange="handleFileSelect(event)">
+       </div>
+       <div id="filePreview" class="hidden mt-4 p-4 bg-pink-50 rounded-lg border-2 border-pink-200">
+        <div class="flex items-center gap-4">
+         <div id="previewImage" class="hidden w-20 h-20 rounded-lg overflow-hidden border-2 border-pink-300"><img id="imagePreview" src="" alt="Preview" class="w-full h-full object-cover">
+         </div>
+         <div id="previewIcon" class="text-4xl">
+          📄
+         </div>
+         <div class="flex-1">
+          <p id="fileName" class="font-medium text-gray-800 truncate"></p>
+          <p id="fileSize" class="text-sm text-gray-500"></p>
+         </div><button type="button" onclick="removeFile()" class="text-red-500 hover:text-red-700 text-2xl"> ❌ </button>
+        </div>
+       </div>
+      </div><button type="submit" class="cute-btn bg-gradient-to-r from-pink-500 to-pink-600 text-white w-full py-4 text-xl font-bold"> ส่งงาน 🚀 </button>
+     </form>
+    </main>
+   </div><!-- Teacher Page -->
+   <div id="teacherPage" class="min-h-full hidden">
+    <header class="bg-gradient-to-r from-purple-500 to-purple-400 text-white p-4 cute-border border-t-0 border-x-0 shadow-lg">
+     <div class="max-w-4xl mx-auto flex items-center justify-between">
+      <div class="flex items-center gap-3"><span class="text-3xl">👩‍🏫</span>
+       <div>
+        <h1 class="text-xl font-bold">มอบหมายงาน</h1>
+        <p class="text-purple-100 text-sm">ระบบจัดการงานสำหรับอาจารย์</p>
+       </div>
+      </div><button onclick="logout()" class="cute-btn bg-white text-purple-600 px-4 py-2 text-sm font-medium"> ออกจากระบบ 👋 </button>
+     </div>
+    </header>
+    <main class="max-w-4xl mx-auto p-4 md:p-6">
+     <form id="assignmentForm" class="space-y-6"><!-- Class Selection -->
+      <div class="bg-white cute-border cute-shadow p-6">
+       <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">🎯 เลือกกลุ่มเรียนที่ต้องการมอบหมาย</h2>
+       <div class="grid md:grid-cols-3 gap-4 mb-4">
+        <div><label class="block text-gray-700 font-medium mb-2">📊 ระดับชั้น</label> <select id="levelSelect" class="cute-input w-full px-4 py-3" onchange="updateSelectedClass(); updateYearOptions()"> <option value="ปวช.">ประกาศนียบัตรวิชาชีพ (ปวช.)</option> <option value="ปวส.">ประกาศนียบัตรวิชาชีพชั้นสูง (ปวส.)</option> </select>
+        </div>
+        <div><label class="block text-gray-700 font-medium mb-2">📅 ชั้นปี</label> <select id="yearSelect" class="cute-input w-full px-4 py-3" onchange="updateSelectedClass()"> <option value="1">ปีที่ 1</option> <option value="2">ปีที่ 2</option> <option value="3">ปีที่ 3</option> </select>
+        </div>
+        <div><label class="block text-gray-700 font-medium mb-2">🏠 ห้อง</label> <select id="roomSelect" class="cute-input w-full px-4 py-3" onchange="updateSelectedClass()"> <option value="1">ห้อง 1</option> <option value="2">ห้อง 2</option> <option value="3">ห้อง 3</option> </select>
+        </div>
+       </div>
+       <div class="bg-purple-50 p-4 rounded-lg border-2 border-purple-200">
+        <p class="text-purple-800 font-medium">🎓 กลุ่มที่เลือก: <span id="selectedClass" class="text-purple-600 font-bold">ปวช. 1/1</span></p>
+       </div>
+      </div><!-- Assignment Details -->
+      <div class="bg-white cute-border cute-shadow p-6">
+       <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">📝 รายละเอียดงาน</h2>
+       <p id="assignmentFor" class="text-purple-600 mb-4">สำหรับ: ปวช. 1/1</p>
+       <div class="space-y-4">
+        <div><label class="block text-gray-700 font-medium mb-2">📚 วิชา <span class="text-red-500">*</span></label> <select id="teacherSubject" class="cute-input w-full px-4 py-3" required> <option value="">-- เลือกวิชา --</option> <option value="คอมพิวเตอร์เบื้องต้น">คอมพิวเตอร์เบื้องต้น</option> <option value="การเขียนโปรแกรม">การเขียนโปรแกรม</option> <option value="ระบบเครือข่าย">ระบบเครือข่าย</option> <option value="ฐานข้อมูล">ฐานข้อมูล</option> <option value="Cloud Computing">Cloud Computing</option> </select>
+        </div>
+        <div><label class="block text-gray-700 font-medium mb-2">📌 หัวข้อเรื่อง <span class="text-red-500">*</span></label> <input type="text" id="topicTitle" placeholder="เช่น การสังเคราะห์แสง" class="cute-input w-full px-4 py-3" required>
+        </div>
+        <div><label class="block text-gray-700 font-medium mb-2">📖 รายละเอียดงาน</label> <textarea id="assignmentDesc" rows="4" placeholder="อธิบายรายละเอียดของงานที่มอบหมาย..." class="cute-input w-full px-4 py-3 resize-none"></textarea>
+        </div>
+        <div><label class="block text-gray-700 font-medium mb-2">📅 กำหนดส่ง <span class="text-red-500">*</span></label> <input type="date" id="deadline" class="cute-input w-full px-4 py-3" required>
+        </div>
+       </div>
+      </div><!-- File Attachment for Teacher -->
+      <div class="bg-white cute-border cute-shadow p-6">
+       <h2 class="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">📎 แนบไฟล์ (ถ้ามี) <span class="text-gray-400 text-sm font-normal">(สูงสุด 10 MB)</span></h2>
+       <div id="teacherFileDropZone" class="file-drop-zone p-8 text-center cursor-pointer" onclick="document.getElementById('teacherFileInput').click()">
+        <div class="text-5xl mb-4">
+         📁
+        </div>
+        <p class="text-gray-600 mb-2">คลิกเพื่อเลือกไฟล์</p>
+        <p class="text-sm text-gray-400">รองรับทุกประเภทไฟล์</p><input type="file" id="teacherFileInput" class="hidden" onchange="handleTeacherFileSelect(event)">
+       </div>
+       <div id="teacherFilePreview" class="hidden mt-4 p-4 bg-purple-50 rounded-lg border-2 border-purple-200">
+        <div class="flex items-center gap-4">
+         <div class="text-4xl">
+          📄
+         </div>
+         <div class="flex-1">
+          <p id="teacherFileName" class="font-medium text-gray-800 truncate"></p>
+          <p id="teacherFileSize" class="text-sm text-gray-500"></p>
+         </div><button type="button" onclick="removeTeacherFile()" class="text-red-500 hover:text-red-700 text-2xl"> ❌ </button>
+        </div>
+       </div>
+      </div><button type="submit" class="cute-btn bg-gradient-to-r from-purple-500 to-purple-600 text-white w-full py-4 text-xl font-bold"> มอบหมายงาน 📤 </button>
+     </form>
+    </main>
+   </div>
+  </div>
+  <script>
+    // Configuration
+    const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxFVHQOBhlPjSHHiCNXKyOFKNsVfnHSiz5a5q2vZBDDNAtgI6MocvHsgFokUwG6rSZt/exec';
+    const SHEET_ID = '1dOt0LEphWHlYnbxX9rO6ffp4eAkSnsbct-yK_GFrqbs';
+    const SHEET_URL = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json`;
+    const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+    const TEACHER_PASSWORD = '555';
+    
+    // State
+    let currentUser = null;
+    let userType = null;
+    let selectedFile = null;
+    let teacherSelectedFile = null;
+    let members = [];
+    let studentsData = [];
+    
+    // Default config
+    const defaultConfig = {
+      system_title: 'ระบบส่งข้อมูล และไฟล์งาน'
+    };
+    
+    let config = { ...defaultConfig };
+    
+    // Element SDK initialization
+    if (window.elementSdk) {
+      window.elementSdk.init({
+        defaultConfig,
+        onConfigChange: async (newConfig) => {
+          config = { ...defaultConfig, ...newConfig };
+          updateUI();
+        },
+        mapToCapabilities: (cfg) => ({
+          recolorables: [],
+          borderables: [],
+          fontEditable: undefined,
+          fontSizeable: undefined
+        }),
+        mapToEditPanelValues: (cfg) => new Map([
+          ['system_title', cfg.system_title || defaultConfig.system_title]
+        ])
+      });
+    }
+    
+    function updateUI() {
+      const titleEl = document.getElementById('systemTitle');
+      if (titleEl) {
+        titleEl.textContent = config.system_title || defaultConfig.system_title;
+      }
+    }
+    
+    function switchLoginTab(tab) {
+      const studentTab = document.getElementById('studentTab');
+      const teacherTab = document.getElementById('teacherTab');
+      const studentForm = document.getElementById('studentLoginForm');
+      const teacherForm = document.getElementById('teacherLoginForm');
+      
+      if (tab === 'student') {
+        studentTab.classList.add('active', 'text-pink-600');
+        studentTab.classList.remove('text-gray-500');
+        teacherTab.classList.remove('active', 'text-purple-600');
+        teacherTab.classList.add('text-gray-500');
+        studentForm.classList.remove('hidden');
+        teacherForm.classList.add('hidden');
+      } else {
+        teacherTab.classList.add('active', 'text-purple-600');
+        teacherTab.classList.remove('text-gray-500');
+        studentTab.classList.remove('active', 'text-pink-600');
+        studentTab.classList.add('text-gray-500');
+        teacherForm.classList.remove('hidden');
+        studentForm.classList.add('hidden');
+      }
+    }
+    
+    // Fetch students data from Google Sheets
+    async function fetchStudentsData() {
+      try {
+        const response = await fetch(SHEET_URL);
+        const text = await response.text();
+        
+        // Parse Google Sheets JSON response
+        const jsonData = JSON.parse(text.substring(47).slice(0, -2));
+        const rows = jsonData.table.rows;
+        
+        studentsData = [];
+        
+        // Skip header row, start from index 1
+        for (let i = 1; i < rows.length; i++) {
+          const row = rows[i];
+          if (row.c && row.c[0] && row.c[1]) {
+            const studentId = row.c[0]?.v || '';
+            const name = row.c[1]?.v || '';
+            
+            if (studentId && name) {
+              studentsData.push({
+                id: studentId.toString(),
+                name: name
+              });
+            }
+          }
+        }
+        
+        console.log('Loaded students:', studentsData.length);
+      } catch (error) {
+        console.error('Error fetching students data:', error);
+        showError('ไม่สามารถโหลดข้อมูลนักศึกษาได้');
+      }
+    }
+    
+    // Login Functions
+    async function studentLogin() {
+      userType = 'student';
+      
+      // Load students data if not already loaded
+      if (studentsData.length === 0) {
+        showLoading();
+        await fetchStudentsData();
+        hideLoading();
+      }
+      
+      document.getElementById('loginPage').classList.add('hidden');
+      document.getElementById('studentPage').classList.remove('hidden');
+      document.getElementById('studentWelcome').textContent = `นักศึกษา`;
+      
+      // Add first member slot
+      addMember('');
+    }
+    
+    function teacherLogin() {
+      const password = document.getElementById('teacherPassword').value;
+      if (password !== TEACHER_PASSWORD) {
+        showError('รหัสผ่านไม่ถูกต้อง');
+        return;
+      }
+      
+      userType = 'teacher';
+      
+      document.getElementById('loginPage').classList.add('hidden');
+      document.getElementById('teacherPage').classList.remove('hidden');
+      updateSelectedClass();
+      updateYearOptions(); // Initialize year options based on default level
+    }
+    
+    function logout() {
+      currentUser = null;
+      userType = null;
+      selectedFile = null;
+      teacherSelectedFile = null;
+      members = [];
+      
+      document.getElementById('loginPage').classList.remove('hidden');
+      document.getElementById('studentPage').classList.add('hidden');
+      document.getElementById('teacherPage').classList.add('hidden');
+      
+      // Reset forms
+      document.getElementById('submitForm').reset();
+      document.getElementById('assignmentForm').reset();
+      document.getElementById('membersList').innerHTML = '';
+      updateMemberCount();
+      
+      // Reset file previews
+      document.getElementById('filePreview').classList.add('hidden');
+      document.getElementById('teacherFilePreview').classList.add('hidden');
+    }
+    
+    // Member Management
+    function addMember(prefilledId = '') {
+      if (members.length >= 5) {
+        showError('สามารถเพิ่มสมาชิกได้สูงสุด 5 คน');
+        return;
+      }
+      
+      const memberId = Date.now();
+      members.push({ id: memberId, studentId: prefilledId, name: '' });
+      
+      const membersList = document.getElementById('membersList');
+      const memberHtml = `
+        <div id="member-${memberId}" class="member-card p-4 animate-bounce-in">
+          <div class="flex items-center gap-2 mb-3">
+            <span class="bg-pink-500 text-white w-6 h-6 rounded-full flex items-center justify-center text-sm font-bold">
+              ${members.length}
+            </span>
+            <span class="font-medium text-gray-700">สมาชิกคนที่ ${members.length}</span>
+            ${members.length > 1 ? `
+              <button type="button" onclick="removeMember(${memberId})" class="ml-auto text-red-500 hover:text-red-700">
+                🗑️
+              </button>
+            ` : ''}
+          </div>
+          <div class="grid md:grid-cols-2 gap-3">
+            <div>
+              <label class="block text-gray-600 text-sm mb-1">รหัสประจำตัว</label>
+              <select id="memberId-${memberId}" 
+                class="cute-input w-full px-3 py-2 text-sm"
+                onchange="updateStudentName(${memberId})">
+                <option value="">-- เลือกนักศึกษา --</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-gray-600 text-sm mb-1">ชื่อ-สกุล</label>
+              <input type="text" id="memberName-${memberId}" 
+                placeholder="(แสดงอัตโนมัติ)" 
+                class="cute-input w-full px-3 py-2 text-sm bg-gray-50" readonly>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      membersList.insertAdjacentHTML('beforeend', memberHtml);
+      
+      // Populate dropdown with students data
+      const selectElement = document.getElementById(`memberId-${memberId}`);
+      studentsData.forEach(student => {
+        const option = document.createElement('option');
+        option.value = student.id;
+        option.textContent = `${student.id} - ${student.name}`;
+        selectElement.appendChild(option);
+      });
+      
+      // If prefilled ID, select it
+      if (prefilledId) {
+        selectElement.value = prefilledId;
+        updateStudentName(memberId);
+      }
+      
+      updateMemberCount();
+    }
+    
+    function removeMember(memberId) {
+      members = members.filter(m => m.id !== memberId);
+      const memberEl = document.getElementById(`member-${memberId}`);
+      if (memberEl) {
+        memberEl.remove();
+      }
+      updateMemberNumbers();
+      updateMemberCount();
+    }
+    
+    function updateMemberNumbers() {
+      const memberCards = document.querySelectorAll('#membersList .member-card');
+      memberCards.forEach((card, index) => {
+        const badge = card.querySelector('.bg-pink-500');
+        const label = card.querySelector('.font-medium');
+        if (badge) badge.textContent = index + 1;
+        if (label) label.textContent = `สมาชิกคนที่ ${index + 1}`;
+      });
+    }
+    
+    function updateMemberCount() {
+      document.getElementById('memberCount').textContent = `${members.length} / 5 คน`;
+      document.getElementById('addMemberBtn').disabled = members.length >= 5;
+      if (members.length >= 5) {
+        document.getElementById('addMemberBtn').classList.add('opacity-50', 'cursor-not-allowed');
+      } else {
+        document.getElementById('addMemberBtn').classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    }
+    
+    function updateStudentName(memberId) {
+      const selectElement = document.getElementById(`memberId-${memberId}`);
+      const nameInput = document.getElementById(`memberName-${memberId}`);
+      const studentId = selectElement.value;
+      
+      if (studentId) {
+        const student = studentsData.find(s => s.id === studentId);
+        const name = student ? student.name : '';
+        nameInput.value = name;
+        
+        // Update members array
+        const member = members.find(m => m.id === memberId);
+        if (member) {
+          member.studentId = studentId;
+          member.name = name;
+        }
+      } else {
+        nameInput.value = '';
+        const member = members.find(m => m.id === memberId);
+        if (member) {
+          member.studentId = '';
+          member.name = '';
+        }
+      }
+    }
+    
+    // File Handling
+    function handleFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      if (file.size > MAX_FILE_SIZE) {
+        showError(`ไฟล์มีขนาดใหญ่เกินไป (สูงสุด ${MAX_FILE_SIZE / 1024 / 1024} MB)`);
+        event.target.value = '';
+        return;
+      }
+      
+      const allowedTypes = ['.pdf', '.jpg', '.jpeg', '.png', '.doc', '.docx', '.xls', '.xlsx'];
+      const fileExt = '.' + file.name.split('.').pop().toLowerCase();
+      if (!allowedTypes.includes(fileExt)) {
+        showError('ประเภทไฟล์ไม่รองรับ');
+        event.target.value = '';
+        return;
+      }
+      
+      selectedFile = file;
+      showFilePreview(file);
+    }
+    
+    function showFilePreview(file) {
+      const preview = document.getElementById('filePreview');
+      const previewImage = document.getElementById('previewImage');
+      const imagePreview = document.getElementById('imagePreview');
+      const previewIcon = document.getElementById('previewIcon');
+      const fileName = document.getElementById('fileName');
+      const fileSize = document.getElementById('fileSize');
+      
+      fileName.textContent = file.name;
+      fileSize.textContent = formatFileSize(file.size);
+      
+      // Check if image
+      if (file.type.startsWith('image/')) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          imagePreview.src = e.target.result;
+          previewImage.classList.remove('hidden');
+          previewIcon.classList.add('hidden');
+        };
+        reader.readAsDataURL(file);
+      } else {
+        previewImage.classList.add('hidden');
+        previewIcon.classList.remove('hidden');
+        
+        // Set icon based on file type
+        const ext = file.name.split('.').pop().toLowerCase();
+        const icons = {
+          'pdf': '📕',
+          'doc': '📘',
+          'docx': '📘',
+          'xls': '📗',
+          'xlsx': '📗'
+        };
+        previewIcon.textContent = icons[ext] || '��';
+      }
+      
+      preview.classList.remove('hidden');
+    }
+    
+    function removeFile() {
+      selectedFile = null;
+      document.getElementById('fileInput').value = '';
+      document.getElementById('filePreview').classList.add('hidden');
+    }
+    
+    function handleTeacherFileSelect(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+      
+      if (file.size > MAX_FILE_SIZE) {
+        showError(`ไฟล์มีขนาดใหญ่เกินไป (สูงสุด ${MAX_FILE_SIZE / 1024 / 1024} MB)`);
+        event.target.value = '';
+        return;
+      }
+      
+      teacherSelectedFile = file;
+      
+      document.getElementById('teacherFileName').textContent = file.name;
+      document.getElementById('teacherFileSize').textContent = formatFileSize(file.size);
+      document.getElementById('teacherFilePreview').classList.remove('hidden');
+    }
+    
+    function removeTeacherFile() {
+      teacherSelectedFile = null;
+      document.getElementById('teacherFileInput').value = '';
+      document.getElementById('teacherFilePreview').classList.add('hidden');
+    }
+    
+    function formatFileSize(bytes) {
+      if (bytes < 1024) return bytes + ' B';
+      if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+      return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+    }
+    
+    // Drag and Drop
+    function setupDragDrop(dropZoneId, inputId, callback) {
+      const dropZone = document.getElementById(dropZoneId);
+      
+      ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+        });
+      });
+      
+      ['dragenter', 'dragover'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+          dropZone.classList.add('drag-over');
+        });
+      });
+      
+      ['dragleave', 'drop'].forEach(eventName => {
+        dropZone.addEventListener(eventName, () => {
+          dropZone.classList.remove('drag-over');
+        });
+      });
+      
+      dropZone.addEventListener('drop', (e) => {
+        const file = e.dataTransfer.files[0];
+        if (file) {
+          const input = document.getElementById(inputId);
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(file);
+          input.files = dataTransfer.files;
+          callback({ target: input });
+        }
+      });
+    }
+    
+    // Teacher Class Selection with dynamic year options
+    function updateYearOptions() {
+      const level = document.getElementById('levelSelect').value;
+      const yearSelect = document.getElementById('yearSelect');
+      
+      // Clear existing options
+      yearSelect.innerHTML = '';
+      
+      if (level === 'ปวช.') {
+        // ปวช. has 3 years
+        yearSelect.innerHTML = `
+          <option value="1">ปีที่ 1</option>
+          <option value="2">ปีที่ 2</option>
+          <option value="3">ปีที่ 3</option>
+        `;
+      } else if (level === 'ปวส.') {
+        // ปวส. has 2 years
+        yearSelect.innerHTML = `
+          <option value="1">ปีที่ 1</option>
+          <option value="2">ปีที่ 2</option>
+        `;
+      }
+      
+      updateSelectedClass();
+    }
+    
+    function updateSelectedClass() {
+      const level = document.getElementById('levelSelect').value;
+      const year = document.getElementById('yearSelect').value;
+      const room = document.getElementById('roomSelect').value;
+      
+      const selectedClass = `${level} ${year}/${room}`;
+      document.getElementById('selectedClass').textContent = selectedClass;
+      document.getElementById('assignmentFor').textContent = `สำหรับ: ${selectedClass}`;
+    }
+    
+    // Form Submission
+    async function submitStudentForm(event) {
+      event.preventDefault();
+      const subject = document.getElementById('subject').value;
+      const assignmentTitle = document.getElementById('assignmentTitle').value;
+      const workLink = document.getElementById('workLink').value;
+      
+      if (!subject || !assignmentTitle) {
+showError('กรุณากรอกข้อมูลที่จำเป็น');
+        return;
+      }
+      
+      if (members.length === 0) {
+        showError('กรุณาเพิ่มสมาชิกอย่างน้��ย 1 คน');
+        return;
+      }
+      
+      // Collect member data
+      const memberData = members.map(m => ({
+        studentId: document.getElementById(`memberId-${m.id}`)?.value || '',
+        name: document.getElementById(`memberName-${m.id}`)?.value || ''
+      }));
+      
+      showLoading();
+      
+      try {
+        let fileData = null;
+        if (selectedFile) {
+          fileData = await fileToBase64(selectedFile);
+        }
+        
+        const payload = {
+          action: 'submitWork',
+          timestamp: new Date().toISOString(),
+          studentId: currentUser,
+          subject,
+          assignmentTitle,
+          workLink,
+          members: JSON.stringify(memberData),
+fileName: selectedFile?.name || '',
+          fileType: selectedFile?.type || '',
+          fileData: fileData
+        };
+        
+        await simulateProgress();
+        
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain'
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        hideLoading();
+        
+        if (result.success) {
+          showSuccess();
+          document.getElementById('submitForm').reset();
+          removeFile();
+          members = members.slice(0, 1);
+document.getElementById('membersList').innerHTML = '';
+          addMember('');
+        } else {
+          showError(result.message || 'เกิดข้อผิดพลาดในการส่งข้อมูล');
+        }
+      } catch (error) {
+        hideLoading();
+        showError('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
+        console.error('Submission error:', error);
+      }
+    }
+    
+    async function submitAssignment(event) {
+      event.preventDefault();
+      
+      const selectedClass = document.getElementById('selectedClass').textContent;
+      const subject = document.getElementById('teacherSubject').value;
+      const topicTitle = document.getElementById('topicTitle').value;
+      const assignmentDesc = document.getElementById('assignmentDesc').value;
+      const deadline = document.getElementById('deadline').value;
+      
+      if (!subject || !topicTitle || !deadline) {
+        showError('กรุณากรอกข้อมูลที่จำเป็น');
+        return;
+      }
+      
+      showLoading();
+      
+      try {
+        let fileData = null;
+        if (teacherSelectedFile) {
+          fileData = await fileToBase64(teacherSelectedFile);
+        }
+        
+        const payload = {
+          action: 'createAssignment',
+          timestamp: new Date().toISOString(),
+          classGroup: selectedClass,
+          subject,
+          topicTitle,
+          assignmentDesc,
+          deadline,
+          fileName: teacherSelectedFile?.name || '',
+          fileType: teacherSelectedFile?.type || '',
+          fileData: fileData
+        };
+        
+        await simulateProgress();
+        
+        const response = await fetch(APPS_SCRIPT_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'text/plain'
+          },
+          body: JSON.stringify(payload)
+        });
+        
+        const result = await response.json();
+        
+        hideLoading();
+        
+        if (result.success) {
+          showSuccess();
+          document.getElementById('assignmentForm').reset();
+          removeTeacherFile();
+          updateSelectedClass();
+        } else {
+          showError(result.message || 'เกิดข้อผิดพลาดในการมอบหมายงาน');
+        }
+      } catch (error) {
+        hideLoading();
+        showError('ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้');
+        console.error('Assignment error:', error);
+      }
+    }
+    
+    // Utility Functions
+    function fileToBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const base64 = reader.result.split(',')[1];
+          resolve(base64);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+    
+    function simulateProgress() {
+      return new Promise((resolve) => {
+        let progress = 0;
+        const progressBar = document.getElementById('progressBar');
+        const progressText = document.getElementById('progressText');
+        
+        const interval = setInterval(() => {
+          progress += Math.random() * 15;
+          if (progress > 90) progress = 90;
+          
+          progressBar.style.width = `${progress}%`;
+          progressText.textContent = `${Math.round(progress)}%`;
+          
+          if (progress >= 90) {
+            clearInterval(interval);
+            setTimeout(() => {
+              progressBar.style.width = '100%';
+              progressText.textContent = '100%';
+              resolve();
+            }, 500);
+          }
+        }, 200);
+      });
+    }
+    
+    function showLoading() {
+      const overlay = document.getElementById('loadingOverlay');
+      overlay.classList.remove('hidden');
+      overlay.classList.add('flex');
+      document.getElementById('progressBar').style.width = '0%';
+      document.getElementById('progressText').textContent = '0%';
+    }
+    
+    function hideLoading() {
+      const overlay = document.getElementById('loadingOverlay');
+      overlay.classList.add('hidden');
+      overlay.classList.remove('flex');
+    }
+    
+    function showSuccess() {
+      const modal = document.getElementById('successModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+    
+    function showError(message) {
+      document.getElementById('errorMessage').textContent = message;
+      const modal = document.getElementById('errorModal');
+      modal.classList.remove('hidden');
+      modal.classList.add('flex');
+    }
+    
+    function closeModal(modalId) {
+      const modal = document.getElementById(modalId);
+      modal.classList.add('hidden');
+      modal.classList.remove('flex');
+    }
+    
+    // Initialize
+    document.addEventListener('DOMContentLoaded', () => {
+      setupDragDrop('fileDropZone', 'fileInput', handleFileSelect);
+      setupDragDrop('teacherFileDropZone', 'teacherFileInput', handleTeacherFileSelect);
+      
+      document.getElementById('submitForm').addEventListener('submit', submitStudentForm);
+      document.getElementById('assignmentForm').addEventListener('submit', submitAssignment);
+      
+      // Set minimum date to today for deadline
+      const today = new Date().toISOString().split('T')[0];
+      document.getElementById('deadline').setAttribute('min', today);
+      
+      updateUI();
+    });
+  </script>
+ <script>(function(){function c(){var b=a.contentDocument||a.contentWindow.document;if(b){var d=b.createElement('script');d.innerHTML="window.__CF$cv$params={r:'9c5e0b25157c8963',t:'MTc2OTc0NTQyOS4wMDAwMDA='};var a=document.createElement('script');a.nonce='';a.src='/cdn-cgi/challenge-platform/scripts/jsd/main.js';document.getElementsByTagName('head')[0].appendChild(a);";b.getElementsByTagName('head')[0].appendChild(d)}}if(document.body){var a=document.createElement('iframe');a.height=1;a.width=1;a.style.position='absolute';a.style.top=0;a.style.left=0;a.style.border='none';a.style.visibility='hidden';document.body.appendChild(a);if('loading'!==document.readyState)c();else if(window.addEventListener)document.addEventListener('DOMContentLoaded',c);else{var e=document.onreadystatechange||function(){};document.onreadystatechange=function(b){e(b);'loading'!==document.readyState&&(document.onreadystatechange=e,c())}}}})();</script></body>
+</html>
